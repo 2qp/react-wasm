@@ -1,103 +1,75 @@
 import "./App.css";
 import "antd/dist/antd.css";
-import { Component, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { FFMPEG } from "./features/ffmpeg";
-import Cards from "./components/card";
-import Console from "./components/console";
+import { Cards } from "./components/card";
+import { Console } from "./components/console";
 import { UploadChangeParam, UploadFile } from "antd/lib/upload";
-import Icons from "./components/icons";
+import { Icons } from "./components/icons";
+import { Images } from "./components/images";
+import { LoadingOutlined } from "@ant-design/icons";
+import { Spin } from "antd";
 
-var oldLog = window.console.log;
+const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
+let oldLog = window.console.log;
 
 window.console.log = function (msg: any) {
   messages.push(msg);
   oldLog.apply(null);
 };
-var messages: any[] = [];
+let messages: string[] = [];
 
-type State = {
-  ready: boolean;
-  video?: File;
-  gif?: string;
-  prevLogs?: Array<string>;
-  logs: Array<string>;
-  videoReady: boolean;
-  converted: boolean;
-};
+interface Logs {
+  logs: Array<string> | null;
+}
 
-type Props = {};
+const App = (): JSX.Element => {
+  const [ready, setReady] = useState(false);
+  const [video, setVideo] = useState<File | null>(null);
+  const [videoReady, setVReady] = useState(false);
+  const [logs, setLogs] = useState<Logs>({ logs: null });
+  const [status, setStatus] = useState(false);
+  const [url, setUrl] = useState<string>("");
 
-export default class App extends Component<Props, State> {
-  state: State = {
-    ready: false,
-    logs: messages,
-    videoReady: false,
-    converted: false,
+  const ffmpeg = FFMPEG.getInstance();
+
+  // functions
+  const load = async (): Promise<void> => {
+    await ffmpeg.load();
+    setReady(true);
   };
 
-  constructor(props: Props) {
-    super(props);
-    this.loadFFMPEG();
-  }
+  const convert = async () => {
+    const a: string = await ffmpeg.toGif(video as File);
 
-  async componentDidMount() {
-    this.state.ready = true;
-    this.logger();
-  }
+    setUrl(a);
+    setStatus(true);
+  };
 
-  // FFMPEG Instance
-  static ffmpeg = FFMPEG.getInstance();
+  useEffect(() => {
+    load();
+  }, []);
 
-  async loadFFMPEG() {
-    await App.ffmpeg.load();
-  }
+  return ready ? (
+    <>
+      <Cards
+        video={video}
+        func={(e: UploadChangeParam<UploadFile<any>>) => {
+          setVideo(e.file.originFileObj as File);
+          setVReady(true);
+        }}
+        convert={async () => convert()}
+        videoReady={videoReady}
+        converted={status}
+        output={url}
+      />
+      <Console msg={messages} />
+      <Icons icons={Images}></Icons>
+      <div className="App"></div>
+    </>
+  ) : (
+    <Spin indicator={antIcon} />
+  );
+};
 
-  logger() {
-    App.ffmpeg.ffmpeg.setLogger((message) => {
-      this.setState((prevState) => ({
-        logs: [message.message, ...prevState.logs],
-      }));
-    });
-  }
-
-  async convert() {
-    const a: string = (await App.ffmpeg.toGif(
-      this.state.video as File
-    )) as string;
-
-    this.setState(() => ({
-      gif: a,
-      converted: true,
-    }));
-
-    if (!a) {
-    }
-  }
-
-  // Render
-  render(): ReactNode {
-    return this.state.ready ? (
-      <>
-        <Cards
-          video={this.state.video as File}
-          func={(e: UploadChangeParam<UploadFile<any>>) =>
-            this.setState(() => ({
-              video: e.file.originFileObj,
-              videoReady: true,
-              converted: false,
-            }))
-          }
-          convert={async () => this.convert()}
-          videoReady={this.state.videoReady}
-          converted={this.state.converted}
-          output={this.state.gif}
-        />
-        <Console msg={messages} />
-        <Icons></Icons>
-        <div className="App"></div>
-      </>
-    ) : (
-      <p>Loading...</p>
-    );
-  }
-}
+export { App };
