@@ -1,5 +1,4 @@
 import "./App.css";
-import "antd/dist/antd.css";
 import { useEffect, useState } from "react";
 import { FFMPEG } from "./features/ffmpeg";
 import { Cards } from "./components/card";
